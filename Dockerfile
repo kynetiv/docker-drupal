@@ -1,6 +1,6 @@
 FROM nginx
-MAINTAINER Miles Fink
 
+MAINTAINER Miles Fink
 
 EXPOSE 80
 
@@ -10,7 +10,7 @@ VOLUME /app
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 
 RUN  apt-get update \
-    && apt-get install -y curl \
+    && apt-get -y install curl \
     apt-utils \
     && echo "deb http://packages.dotdeb.org jessie all" > /etc/apt/sources.list.d/dotdeb.list \
     && curl -sS https://www.dotdeb.org/dotdeb.gpg | apt-key add - \
@@ -25,7 +25,6 @@ RUN  apt-get update \
     php7.0-pgsql \
     php7.0-redis \
     php7.0-cli \
-    php-pear \
     php7.0-curl \
     php7.0-json \
     postfix \
