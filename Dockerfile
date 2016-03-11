@@ -7,13 +7,19 @@ EXPOSE 80
 # VOLUME /usr/share/nginx/html/
 VOLUME /app
 
-RUN  apt-get update
-RUN  apt-get install -y \ 
-    git \
-    nano \
+RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
+
+RUN  apt-get update \
+    && apt-get install -y curl \
+    apt-utils \
+    && echo "deb http://packages.dotdeb.org jessie all" > /etc/apt/sources.list.d/dotdeb.list \
+    && curl -sS https://www.dotdeb.org/dotdeb.gpg | apt-key add - \
+    && apt-get update \
+    && apt-get -y --no-install-recommends install nano \
     php7.0 \
     php7.0-fpm \
     php7.0-gd \
+    php7.0-mcrypt \
     php7.0-phpdbg \
     php7.0-mysql \
     php7.0-pgsql \
@@ -22,7 +28,8 @@ RUN  apt-get install -y \
     php-pear \
     php7.0-curl \
     php7.0-json \
-    postfix
+    postfix \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 #RUN  pecl install mongo
 
 COPY drupal.conf /etc/nginx/conf.d/default.conf
@@ -42,4 +49,5 @@ CMD \
   ln -s /app/$DOCUMENT_ROOT /var/www && \
   service nginx start && \
   service php7-fpm start && \
-  tail -f /var/log/php7-fpm.log
+  tail -f /var/log/php7-fpm.log \
+  php --version
