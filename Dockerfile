@@ -1,56 +1,73 @@
-FROM nginx
+# see https://github.com/phusion/baseimage-docker for perks
+FROM phusion/baseimage:0.9.18
 
-MAINTAINER Miles Fink
+# Use baseimage-docker's init system.
+CMD ["/sbin/my_init"]
+
+# Ensure UTF-8
+RUN locale-gen en_US.UTF-8
+ENV LANG       en_US.UTF-8
+ENV LC_ALL     en_US.UTF-8
 
 EXPOSE 80
 
 # VOLUME /usr/share/nginx/html/
 VOLUME /app
 
-# Silence debconf's endless prattle
-ENV DEBIAN_FRONTEND noninteractive
+RUN DEBIAN_FRONTEND="noninteractive"
 
-RUN  apt-get update \
-    && apt-get -y install curl \
-    apt-utils \
-    && echo "deb http://packages.dotdeb.org jessie all" > /etc/apt/sources.list.d/dotdeb.list \
-    && curl -sS https://www.dotdeb.org/dotdeb.gpg | apt-key add - \
-    && apt-get update \
-    && apt-get -y --no-install-recommends --force-yes install nano \
-    php7.0 \
+RUN apt-get update
+RUN apt-get -y --no-install-recommends install \
+    vim \
+    nano \
+    curl \
+    wget \
+    build-essential \
+    python-software-properties
+RUN add-apt-repository -y ppa:ondrej/php
+RUN add-apt-repository -y ppa:nginx/stable
+RUN apt-get update
+RUN DEBIAN_FRONTEND="noninteractive"
+RUN apt-get -y --no-install-recommends install \
     php7.0-fpm \
+    php7.0-dev \
+    php7.0-cli \
+    php7.0-common \
     php7.0-gd \
     php7.0-mcrypt \
+    php7.0-mbstring \
+    php7.0-tidy \
+    php7.0-intl \
     php7.0-phpdbg \
     php7.0-mysql \
     php7.0-pgsql \
-    php7.0-redis \
+    php-redis \
+    php7.0-recode \
     php7.0-opcache \
-    php7.0-cli \
     php7.0-curl \
     php7.0-json \
     php7.0-xml \
-    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    php7.0-zip
 
+RUN DEBIAN_FRONTEND="noninteractive" apt-get install -y nginx
 
+RUN sed -i -e "s/;daemonize\s*=\s*yes/daemonize = no/g" /etc/php/7.0/fpm/php-fpm.conf
+RUN sed -i "s/;cgi.fix_pathinfo=1/cgi.fix_pathinfo=0/"  /etc/php/7.0/fpm/php.ini
 
-COPY drupal.conf /etc/nginx/conf.d/default.conf
-COPY www.conf /etc/php/7.0/fpm/pool.d/www.conf
-COPY nginx.conf /etc/nginx/nginx.conf
-#COPY php.ini /etc/php5/fpm/php.ini
-
+COPY conf/drupal.conf   /etc/nginx/sites-available/default
 RUN echo "daemon off;" >> /etc/nginx/nginx.conf
 
-# Allow NGINX UID and GID to be set at runtime so we can pass in environment variables.
-ENV HOST_UID 200
-ENV HOST_GID 200
+RUN mkdir           /etc/service/nginx
+ADD init/nginx.sh   /etc/service/nginx/run
+RUN chmod +x        /etc/service/nginx/run
 
-CMD \
-    # Commenting out until we can guarantee it works. Troubl e on Macs.
-    #  usermod -u $HOST_UID nginx && \
-    #  groupmod -g $HOST_GID nginx && \
-    rm -rf /var/www && \
-    ln -s /app/$DOCUMENT_ROOT /var/www && \
-    service nginx start && \
-    service php7-fpm start && \
-    tail -f /var/log/php7-fpm.log \
+RUN mkdir           /etc/service/phpfpm
+ADD init/phpfpm.sh  /etc/service/phpfpm/run
+RUN chmod +x        /etc/service/phpfpm/run
+
+RUN rm -rf /var/www
+RUN ln -s /app/docroot /var/www
+
+# Clean up APT when done.
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/
+
